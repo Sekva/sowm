@@ -13,7 +13,7 @@
 #define mod_clean(mask) (mask & ~(numlock|LockMask) & \
         (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 
-typedef struct {
+typedef struct arg_t {
     const char** com;
     const int i;
     const Window w;
@@ -29,7 +29,7 @@ struct key {
 typedef struct client {
     struct client *next, *prev;
     int f, wx, wy;
-    unsigned int ww, wh;
+    int ww, wh;
     Window w;
 } client;
 
@@ -43,7 +43,7 @@ void notify_destroy(XEvent *e);
 void notify_enter(XEvent *e);
 void notify_motion(XEvent *e);
 void run(const Arg arg);
-void win_add(Window w);
+void win_add(Window w, int bordas_check);
 void win_center(const Arg arg);
 void win_del(Window w);
 void win_fs(const Arg arg);
@@ -53,5 +53,18 @@ void win_prev(const Arg arg);
 void win_next(const Arg arg);
 void win_to_ws(const Arg arg);
 void ws_go(const Arg arg);
+
+
+void mover_pra_menu(const Arg arg);
+void mover_pra_janela(const Arg arg);
+void mover_pra_systray(const Arg arg);
+void voltar_da_systray(const Arg arg);
+
+void criar_ida_menu(void);
+void criar_ida_janela(void);
+void criar_ida_systray(void);
+void criar_volta_systray(void);
+void criar_janelas_movimento(void);
+
 
 static int xerror() { return 0; }

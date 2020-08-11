@@ -1,5 +1,4 @@
-// sowm - An itsy bitsy floating window manager.
-
+#include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/XF86keysym.h>
 #include <X11/keysym.h>
@@ -7,16 +6,31 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "sowm.h"
 
-static client       *list = {0}, *ws_list[10] = {0}, *cur;
+static client       *list = {0}, *ws_list[1] = {0}, *cur;
 static int          ws = 1, sw, sh, wx, wy, numlock = 0;
 static unsigned int ww, wh;
 
 static Display      *d;
 static XButtonEvent mouse;
 static Window       root;
+int          s;
+
+Window janela_ir_menu;
+Window janela_ir_janela;
+Window janela_ir_systray;
+Window janela_voltar_systray;
+
+enum Estado {
+    Janela,
+    Menu,
+    Systray,
+};
+enum Estado estado_atual  = Janela;
+
 
 static void (*events[LASTEvent])(XEvent *e) = {
     [ButtonPress]      = button_press,
@@ -34,6 +48,7 @@ static void (*events[LASTEvent])(XEvent *e) = {
 void win_focus(client *c) {
     cur = c;
     XSetInputFocus(d, cur->w, RevertToParent, CurrentTime);
+    XSetWindowBorder(d, cur->w, 16711680);
 }
 
 void notify_destroy(XEvent *e) {
@@ -84,13 +99,31 @@ void button_release(XEvent *e) {
     mouse.subwindow = 0;
 }
 
-void win_add(Window w) {
+void win_add(Window w,  int bordas_check) {
+
     client *c;
 
     if (!(c = (client *) calloc(1, sizeof(client))))
         exit(1);
 
-    c->w = w;
+
+    int bordas = 40;
+    if(bordas_check) {
+        XWindowChanges wc;
+        wc.x = bordas;
+        wc.y = bordas;
+        wc.width = sw - bordas;
+        wc.height= sh - bordas;
+        wc.border_width = 4;
+        XConfigureWindow(d, w, CWBorderWidth, &wc);
+        XResizeWindow(d, w, sw - 2*bordas, sh - 2*bordas);
+    }
+
+    c->w  = w;
+    c->wx = bordas;
+    c->wy = bordas;
+    c->ww = sw - bordas;
+    c->wh = sh - bordas;
 
     if (list) {
         list->prev->next = c;
@@ -136,7 +169,7 @@ void win_fs(const Arg arg) {
     if (!cur) return;
 
     if ((cur->f = cur->f ? 0 : 1)) {
-        win_size(cur->w, &cur->wx, &cur->wy, &cur->ww, &cur->wh);
+        win_size(cur->w, &cur->wx, &cur->wy, (unsigned int*) &cur->ww, (unsigned int*) &cur->wh);
         XMoveResizeWindow(d, cur->w, 0, 0, sw, sh);
 
     } else {
@@ -150,7 +183,7 @@ void win_to_ws(const Arg arg) {
     if (arg.i == tmp) return;
 
     ws_sel(arg.i);
-    win_add(cur->w);
+    win_add(cur->w, 1);
     ws_save(arg.i);
 
     ws_sel(tmp);
@@ -212,7 +245,7 @@ void map_request(XEvent *e) {
 
     XSelectInput(d, w, StructureNotifyMask|EnterWindowMask);
     win_size(w, &wx, &wy, &ww, &wh);
-    win_add(w);
+    win_add(w, 1);
     cur = list->prev;
 
     if (wx + wy == 0) win_center((Arg){0});
@@ -255,15 +288,151 @@ void input_grab(Window root) {
     XFreeModifiermap(modmap);
 }
 
+
+
+
+
+
+
+
+
+
+void mover_pra_menu(const Arg arg) {
+
+    estado_atual = Menu;
+    XMoveWindow(d, janela_ir_menu, sw - 10, sh + 10);
+    XMoveWindow(d, janela_ir_janela, 0, sh - 10);
+    XMoveWindow(d, janela_ir_systray, sw/2, sh - 10);
+    XMoveWindow(d, janela_voltar_systray, sw/2, -11);
+
+    //printf("movendo pro menu...\n");
+    int quanto_falta = sw;
+
+    while(quanto_falta > 0) {
+        quanto_falta--;
+        for win {
+            c->wx--;
+            XMoveWindow(d, c->w, c->wx, c->wy);
+        }
+    }
+    //printf("movido.\n");
+
+}
+
+void mover_pra_janela(const Arg arg) {
+
+    estado_atual = Janela;
+    XMoveWindow(d, janela_ir_menu, sw - 10, sh - 10);
+    XMoveWindow(d, janela_ir_janela, 0, sh + 10);
+    XMoveWindow(d, janela_ir_systray, sw/2, sh + 10);
+    XMoveWindow(d, janela_voltar_systray, sw/2, -11);
+
+    //printf("movendo pra janela...\n");
+    int quanto_falta = sw;
+
+    while(quanto_falta > 0) {
+        quanto_falta--;
+        for win {
+            c->wx++;
+            XMoveWindow(d, c->w, c->wx, c->wy);
+        }
+    }
+    //printf("movido.\n");
+}
+
+void mover_pra_systray(const Arg arg) {
+
+    estado_atual = Systray;
+    XMoveWindow(d, janela_ir_menu, sw - 10, sh + 10);
+    XMoveWindow(d, janela_ir_janela, 0, sh + 10);
+    XMoveWindow(d, janela_ir_systray, sw/2, sh + 10);
+    XMoveWindow(d, janela_voltar_systray, sw/2, 0);
+
+    //printf("movendo pra systray...\n");
+    int quanto_falta = sh;
+
+    while(quanto_falta > 0) {
+        quanto_falta--;
+        for win {
+            c->wy--;
+            XMoveWindow(d, c->w, c->wx, c->wy);
+        }
+    }
+    //printf("movido.\n");
+}
+
+void voltar_da_systray(const Arg arg) {
+
+    estado_atual = Menu;
+    XMoveWindow(d, janela_ir_menu, sw - 10, sh + 10);
+    XMoveWindow(d, janela_ir_janela, 0, sh - 10);
+    XMoveWindow(d, janela_ir_systray, sw/2, sh - 10);
+    XMoveWindow(d, janela_voltar_systray, sw/2, -11);
+
+    //printf("voltando da systray...\n");
+    int quanto_falta = sh;
+
+    while(quanto_falta > 0) {
+        quanto_falta--;
+        for win {
+            c->wy++;
+            XMoveWindow(d, c->w, c->wx, c->wy);
+        }
+    }
+    //printf("movido.\n");
+}
+
+
+
+
+
+
+void criar_ida_menu(){
+    // Janela ir menu
+    janela_ir_menu = XCreateSimpleWindow(d, root, sw - 10, sh - 10, 10, 10, 1, BlackPixel(d, s), WhitePixel(d, s));
+    XSelectInput(d, janela_ir_menu, PointerMotionMask);
+    XMapWindow(d, janela_ir_menu);
+}
+
+void criar_ida_janela(){
+    // Janela ir janela
+    janela_ir_janela = XCreateSimpleWindow(d, root, 0, sh, 10, 10, 1, BlackPixel(d, s), WhitePixel(d, s));
+    XSelectInput(d, janela_ir_janela, ExposureMask | KeyPressMask | PointerMotionMask);
+    XMapWindow(d, janela_ir_janela);
+}
+
+void criar_ida_systray(){
+    // Janela ir systray
+    janela_ir_systray = XCreateSimpleWindow(d, root, sw/2, sh, 10, 10, 1, BlackPixel(d, s), WhitePixel(d, s));
+    XSelectInput(d, janela_ir_systray, ExposureMask | KeyPressMask | PointerMotionMask);
+    XMapWindow(d, janela_ir_systray);
+}
+
+void criar_volta_systray(){
+    // Janela voltar systray
+    janela_voltar_systray = XCreateSimpleWindow(d, root, sw/2, -11, 10, 10, 1, BlackPixel(d, s), WhitePixel(d, s));
+    XSelectInput(d, janela_voltar_systray, ExposureMask | KeyPressMask | PointerMotionMask);
+    XMapWindow(d, janela_voltar_systray);
+}
+
+
+void criar_janelas_movimento() {
+    criar_ida_menu();
+    criar_ida_janela();
+    criar_ida_systray();
+    criar_volta_systray();
+}
+
+
+
 int main(void) {
-    XEvent ev;
 
     if (!(d = XOpenDisplay(0))) exit(1);
 
     signal(SIGCHLD, SIG_IGN);
     XSetErrorHandler(xerror);
 
-    int s = DefaultScreen(d);
+    s     = DefaultScreen(d);
     root  = RootWindow(d, s);
     sw    = XDisplayWidth(d, s);
     sh    = XDisplayHeight(d, s);
@@ -272,6 +441,38 @@ int main(void) {
     XDefineCursor(d, root, XCreateFontCursor(d, 68));
     input_grab(root);
 
-    while (1 && !XNextEvent(d, &ev)) // 1 && will forever be here.
-        if (events[ev.type]) events[ev.type](&ev);
+    criar_janelas_movimento();
+
+    XEvent ev;
+    while (1) {
+
+        if(!XNextEvent(d, &ev)) {
+            if (events[ev.type]) events[ev.type](&ev);
+        }
+
+        int win_x, win_y, root_x, root_y = 0;
+        unsigned int mask = 0;
+        Window child_win, root_win;
+        XQueryPointer(d, root, &child_win, &root_win, &root_x, &root_y, &win_x, &win_y, &mask);
+
+        Arg a;
+
+        if(root_win == janela_ir_menu && estado_atual == Janela) {
+            mover_pra_menu(a);
+        }
+
+        if(root_win ==  janela_ir_janela && estado_atual == Menu) {
+            mover_pra_janela(a);
+        }
+
+        if(root_win ==  janela_ir_systray && estado_atual == Menu) {
+            mover_pra_systray(a);
+        }
+
+        if(root_win ==  janela_voltar_systray && estado_atual == Systray) {
+            voltar_da_systray(a);
+        }
+
+
+    }
 }

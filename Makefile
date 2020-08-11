@@ -1,8 +1,6 @@
 CFLAGS += -std=c99 -Wall -Wextra -pedantic -Wold-style-declaration
 CFLAGS += -Wmissing-prototypes -Wno-unused-parameter
-PREFIX ?= /usr
-BINDIR ?= $(PREFIX)/bin
-CC     ?= gcc
+CC     ?= clang
 
 all: sowm
 
@@ -12,13 +10,15 @@ config.h:
 sowm: sowm.c sowm.h config.h Makefile
 	$(CC) -O3 $(CFLAGS) -o $@ $< -lX11 $(LDFLAGS)
 
-install: all
-	install -Dm755 sowm $(DESTDIR)$(BINDIR)/sowm
-
-uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/sowm
-
 clean:
-	rm -f sowm *.o
+	rm -f sowm *.o config.h
 
-.PHONY: all install uninstall clean
+test: all
+	Xephyr -br -ac -noreset -screen 1200x720 :1 &
+	sleep 0.1s
+	DISPLAY=:1 ./sowm &
+	sleep 0.1s
+	DISPLAY=:1 xterm; pkill sowm; pkill Xephyr
+	
+
+.PHONY: all clean
